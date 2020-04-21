@@ -1,4 +1,5 @@
 import * as Discord from 'discord.js';
+import * as config from '../config.json';
 
 class Bot {
     private client!: Discord.Client;
@@ -22,7 +23,7 @@ class Bot {
             }
         })
 
-        this.client.login('NzAyMDQ3NjExMDc4NzA1MTUz.Xp6jqg.KNPa4mdZ8rrq8tJIz2XH_Qa_Ze0');
+        this.client.login(config.token);
     }
 
     private endsWith(ending: string): boolean {
