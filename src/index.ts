@@ -15,11 +15,15 @@ class Bot {
         this.client.on('message', async message => {
             this.message = message;
 
-            if (!message.author.bot && this.endsWith('да')) {
+            if (message.author.username === 'German') {
+                this.message.channel.send('Ой да ты вообще ебло завали');
+            } else if (!message.author.bot && this.endsWith('да')) {
                 await this.message.channel.send('ПИЗДА');
-                await this.message.react('🇱');
-                await this.message.react('🇴');
-                await this.message.react('🇽');
+                await message.react('🇱');
+                await message.react('🇴');
+                await message.react('🇽');
+            } else if (/мама германа/i.test(message.content)) {
+                this.message.channel.send('ТУПАЯ ПИЗДА');
             }
         })
 

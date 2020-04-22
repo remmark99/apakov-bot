@@ -37,8 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 exports.__esModule = true;
 var Discord = require("discord.js");
-// tslint:disable-next-line
-// const Discord = require('discord.js');
+var config = require("../config.json");
 var Bot = /** @class */ (function () {
     function Bot() {
     }
@@ -53,23 +52,34 @@ var Bot = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.message = message;
-                        if (!(!message.author.bot && this.endsWith('да'))) return [3 /*break*/, 4];
-                        return [4 /*yield*/, this.message.react('🇱')];
+                        if (!(!message.author.bot && this.endsWith('да'))) return [3 /*break*/, 5];
+                        return [4 /*yield*/, this.message.channel.send('ПИЗДА')];
                     case 1:
                         _a.sent();
-                        return [4 /*yield*/, this.message.react('🇴')];
+                        return [4 /*yield*/, message.react('🇱')];
                     case 2:
                         _a.sent();
-                        return [4 /*yield*/, this.message.react('🇽')];
+                        return [4 /*yield*/, message.react('🇴')];
                     case 3:
                         _a.sent();
-                        this.message.channel.send('ПИЗДА');
-                        _a.label = 4;
-                    case 4: return [2 /*return*/];
+                        return [4 /*yield*/, message.react('🇽')];
+                    case 4:
+                        _a.sent();
+                        return [3 /*break*/, 6];
+                    case 5:
+                        if (/мама германа/i.test(message.content)) {
+                            this.message.channel.send('ТУПАЯ ПИЗДА');
+                        }
+                        else if (message.author.username === 'German') {
+                            message.edit('гав-гав');
+                            this.message.channel.send('Ой да ты вообще ебло завали');
+                        }
+                        _a.label = 6;
+                    case 6: return [2 /*return*/];
                 }
             });
         }); });
-        this.client.login('NzAyMDQ3NjExMDc4NzA1MTUz.Xp6jqg.KNPa4mdZ8rrq8tJIz2XH_Qa_Ze0');
+        this.client.login(config.token);
     };
     Bot.prototype.endsWith = function (ending) {
         var regExp = new RegExp(".*" + ending + "\\W*$", 'i');
