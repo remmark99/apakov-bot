@@ -1,5 +1,6 @@
 import * as Discord from 'discord.js';
 import * as config from '../config.json';
+import { User } from 'discord.js';
 
 class Bot {
     private client!: Discord.Client;
@@ -26,6 +27,11 @@ class Bot {
                 this.message.channel.send('ТУПАЯ ПИЗДА');
             } else if (/образование/i.test(message.content)) {
                 this.message.channel.send('СОСАТЬ');
+            } else if (/Марк/i.test(message.content)) {
+                const user = message.guild?.member(message.mentions.users.first() as User);
+                const role = message!.guild!.roles.cache.get('702545443334258759');
+
+                user?.roles.add(role!);
             }
         })
 
