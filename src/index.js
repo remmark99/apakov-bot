@@ -52,30 +52,33 @@ var Bot = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         this.message = message;
-                        if (!(!message.author.bot && this.endsWith('да'))) return [3 /*break*/, 5];
-                        return [4 /*yield*/, this.message.channel.send('ПИЗДА')];
+                        if (!(message.author.username === 'German')) return [3 /*break*/, 1];
+                        this.message.channel.send('Ой да ты вообще ебло завали');
+                        return [3 /*break*/, 7];
                     case 1:
-                        _a.sent();
-                        return [4 /*yield*/, message.react('🇱')];
+                        if (!(!message.author.bot && this.endsWith('да'))) return [3 /*break*/, 6];
+                        return [4 /*yield*/, this.message.channel.send('ПИЗДА')];
                     case 2:
                         _a.sent();
-                        return [4 /*yield*/, message.react('🇴')];
+                        return [4 /*yield*/, message.react('🇱')];
                     case 3:
                         _a.sent();
-                        return [4 /*yield*/, message.react('🇽')];
+                        return [4 /*yield*/, message.react('🇴')];
                     case 4:
                         _a.sent();
-                        return [3 /*break*/, 6];
+                        return [4 /*yield*/, message.react('🇽')];
                     case 5:
+                        _a.sent();
+                        return [3 /*break*/, 7];
+                    case 6:
                         if (/мама германа/i.test(message.content)) {
                             this.message.channel.send('ТУПАЯ ПИЗДА');
                         }
-                        else if (message.author.username === 'German') {
-                            message.edit('гав-гав');
-                            this.message.channel.send('Ой да ты вообще ебло завали');
+                        else if (/образование/i.test(message.content)) {
+                            this.message.channel.send('СОСАТЬ');
                         }
-                        _a.label = 6;
-                    case 6: return [2 /*return*/];
+                        _a.label = 7;
+                    case 7: return [2 /*return*/];
                 }
             });
         }); });
