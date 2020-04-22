@@ -33,7 +33,7 @@ class Bot {
     }
 
     private endsWith(ending: string): boolean {
-        const regExp: RegExp = new RegExp(`.*${ending}\\W*$`, 'i');
+        const regExp: RegExp = new RegExp(`.*${ending}[^а-яА-Яa-zA-Z]*$`, 'i');
 
         return regExp.test(this.message.content);
     }
