@@ -1,0 +1,29 @@
+{
+  "name": "apakov-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "serve": "npx tsc src/index.ts --resolveJsonModule && node ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/remmark99/apakov-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/remmark99/apakov-bot/issues"
+  },
+  "homepage": "https://github.com/remmark99/apakov-bot#readme",
+  "dependencies": {
+    "@types/node": "^13.13.1",
+    "discord.js": "^12.2.0",
+    "tslint": "^6.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^3.8.3"
+  }
+}
