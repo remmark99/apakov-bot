@@ -24,6 +24,8 @@ class Bot {
                 await message.react('🇽');
             } else if (/мама германа/i.test(message.content)) {
                 this.message.channel.send('ТУПАЯ ПИЗДА');
+            } else if (/образование/i.test(message.content)) {
+                this.message.channel.send('СОСАТЬ');
             }
         })
 
