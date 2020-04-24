@@ -31,10 +31,12 @@ class Quiz {
         this.channel = message.channel;
         this.client = client;
         const reply = await this.getParticipants(client, message);
+        const commandAmountArgument = message.content.match(/\d/);
+        const questionsAmount = commandAmountArgument ? commandAmountArgument[0] : 1;
 
         message.channel.send(reply);
 
-        await this.setQuestions();
+        await this.setQuestions(questionsAmount);
         this.setScores();
 
         if (this.questions.length) this.sendQuestions();
@@ -82,8 +84,8 @@ class Quiz {
         return !user.bot && reaction.emoji.name === '👍';
     }
 
-    private async setQuestions(): Promise<void> {
-        const response = await axios.get('https://opentdb.com/api.php?amount=1&category=31');
+    private async setQuestions(amount: string): Promise<void> {
+        const response = await axios.get(`https://opentdb.com/api.php?amount=${amount}&category=31`);
         this.questions = response.data.results;
 
         for (const question of this.questions) {
@@ -108,8 +110,15 @@ class Quiz {
         await message.react('🇩');
 
         const reactions = await message.awaitReactions((reaction: any, user: any) => !user.bot, { time: 10000 });
-        this.changeScores(reactions);
-        console.log(this.scores);
+        await this.changeScores(reactions);
+
+        const scoresFields = this.getScoresFields();
+
+        const scoresEmbed = new MessageEmbed()
+            .setTitle('Результаты')
+            .addFields(scoresFields);
+
+        this.channel.send(scoresEmbed);
 
         if (this.questions.length) {
             this.sendQuestions();
@@ -126,11 +135,11 @@ class Quiz {
         const usersReactedCorrectly = await reactions.get(this.correctAnswer)?.users.fetch(); // TODO: change varialbe name
         const users = usersReactedCorrectly?.entries();
 
+        console.log('changing scores');
         if (!users) return;
 
         while (true) {
             const user = users.next().value;
-            console.log(user, 'this is user');
 
             if (!user) break;
 
@@ -138,33 +147,9 @@ class Quiz {
 
             if (data.bot) continue;
 
-            this.scores[id]++;
+            this.scores[id] = this.scores[id] + 1;
+            console.log(this.scores[id], id, this.scores);
         }
-
-
-        // while (true) {
-        //     const reactionEmoji = reactionEmojis.next().value;
-
-        //     if (!reactionEmoji) return;
-
-        //     const usersReacted = await reactions.get(reactionEmoji)?.users.fetch();
-        //     const users = usersReacted?.entries();
-
-        //     if (!users) break;
-
-            // while (true) {
-            //     const user = users.next().value;
-
-            //     if (!user) break;
-
-            //     const [id, data] = user;
-
-            //     if (data.bot) continue;
-
-            //     if (this.currentQuestion.correct_answer)
-            // }
-
-            // return;
     }
 
     private getRandomAnswersOrder() {
@@ -200,6 +185,17 @@ class Quiz {
         }
 
         return fields;
+    }
+
+    private getScoresFields(): EmbedFieldData[] {
+        const scoresFields: EmbedFieldData[] = [];
+        const usersId = Object.keys(this.scores);
+
+        for (const userId of usersId) {
+            scoresFields.push({name: `<@${userId}>`, value: this.scores[userId]});
+        }
+
+        return scoresFields;
     }
 }
 
