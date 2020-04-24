@@ -1,5 +1,15 @@
 import axios from 'axios';
-import { MessageEmbed, Client, Collection, User, Snowflake, Message, TextChannel, MessageReaction, EmbedFieldData } from 'discord.js';
+import {
+    MessageEmbed,
+    Client,
+    Collection,
+    User,
+    Snowflake,
+    TextChannel,
+    MessageReaction,
+    EmbedFieldData,
+    Message
+} from 'discord.js';
 
 interface UserObject {
     id: string;
@@ -27,6 +37,7 @@ class Quiz {
     private currentQuestion!: Question;
     private correctAnswer!: string;
     private quizIsOngoing!: boolean;
+    private command!: Message;
 
     public async startQuiz(client: Client, message: any) {
         if (this.quizIsOngoing) {
@@ -39,52 +50,83 @@ class Quiz {
         this.channel = message.channel;
         this.client = client;
         await this.getParticipants(client, message);
-        const commandAmountArgument = message.content.match(/\d+/);
-        const questionsAmount = commandAmountArgument ? commandAmountArgument[0] : 1;
-
-        await this.setQuestions(questionsAmount);
-        this.setScores();
-
-        if (this.questions.length) this.sendQuestions();
-
-        this.endQuiz();
     }
 
-    private async getParticipants(client: Client, message: any): Promise<void> {
-        const sentMessage = await message.channel.send('Для того, чтобы принять участие в квизе, нажми 👍');
+    private async getParticipants(client: Client, command: Message): Promise<void> {
+        let timeLeft = 60;
+        let usersReadyToPlay: number;
+        this.command = command;
+        const startQuizEmbed = new MessageEmbed()
+            .setColor('#29b64e')
+            .setAuthor(
+                `Квиз начат ${command.author.username} в ${command.author.presence.member?.voice.channel?.name}`,
+                command.author.avatarURL() || command.author.defaultAvatarURL
+                )
+            .setDescription(
+                'Мы начинаем подбор участников для межгалактической викторины Марка Апакова! ' +
+                'Для того, что принять участие, нажми на 👍 и, если хочешь, перейди в голосовой канал, ' +
+                'указанный в заголовке. Также...'
+                )
+            .addFields(
+                {name: 'Если ты __**хост**__ и хочешь завершить подбор игроков, нажми на', value: '⏩', inline: true},
+                {name: 'Если ты долбаеб, можешь добавить любую другую эмодзи', value: client.emojis.cache.get('703194339094036510'), inline: true},
+                )
+            .addField('Викторина начнется автоматически через', `***${timeLeft} секунд***`)
+            .setFooter('Всего участников: ')
+
+        const sentMessage = await command.channel.send(startQuizEmbed);
 
         await sentMessage.react('👍');
+        await sentMessage.react('⏩');
 
-        const reactions = await sentMessage.awaitReactions(this.startQuizFilter, {time: 5000});
-        const usersReacted: Collection<Snowflake, User> = await reactions.get('👍')?.users.fetch();
+        const intervalId = setInterval(() => {
+            timeLeft -= 5;
 
-        if (!usersReacted) {
-            this.channel.send('Бля вы если зовете, то хоть по кнопке хуярьте');
-            this.channel.send('долбаебы');
+            sentMessage.edit(
+                new MessageEmbed()
+                    .setColor('#29b64e')
+                    .setAuthor(
+                        `Квиз начат ${command.author.username} в ${command.author.presence.member?.voice.channel?.name}`,
+                        command.author.avatarURL() || command.author.defaultAvatarURL
+                        )
+                    .setDescription(
+                        'Мы начинаем подбор участников для межгалактической викторины Марка Апакова! ' +
+                        'Для того, что принять участие, нажми на 👍 и, если хочешь, перейди в голосовой канал, ' +
+                        'указанный в заголовке. Также...'
+                        )
+                    .addFields(
+                        {name: 'Если ты __**хост**__ и хочешь завершить подбор игроков, нажми на', value: '⏩', inline: true},
+                        {name: 'Если ты долбаеб, можешь добавить любую другую эмодзи', value: client.emojis.cache.get('703194339094036510'), inline: true},
+                        )
+                    .addField('Викторина начнется автоматически через', `***${timeLeft} секунд***`)
+                    .setFooter('Всего участников: ')
+            );
 
-            throw 'Not enough players'; // TODO: either make a catch block, or return boolean from function
-        }
+            if (timeLeft === 0) clearInterval(intervalId);
+        }, 5000);
 
-        const users = usersReacted.entries();
+        let usersReacted: Collection<Snowflake, User> | undefined;
+        const collector = sentMessage.createReactionCollector((reaction: any, user) => !user.bot, { time: timeLeft * 1000 });
 
-        while (true) {
-            const user = users.next().value;
+        collector.on('collect', async (reaction, reactionCollector) => {
+            usersReacted = await sentMessage.reactions.cache.get('👍')?.users.fetch();
+            usersReacted = usersReacted?.filter((user: any) => !user.bot);
 
-            if (!user) break;
+            if (reaction.emoji.name === '⏩' && reactionCollector.username === this.command.author.username) {
+                clearInterval(intervalId);
+                this.finishPreparations(usersReacted?.size ? usersReacted : false);
 
-            const [id, data] = user;
+                collector.removeAllListeners();
+                collector.stop();
+            }
+        });
 
-            if (data.bot) continue;
+        collector.on('end', async (reaction, reactionCollector) => {
+            usersReacted = await sentMessage.reactions.cache.get('👍')?.users.fetch();
+            usersReacted = usersReacted?.filter((user: any) => !user.bot);
 
-            this.participants.push({id, data});
-        }
-
-        let reply = 'Текущий состав участников: ';
-        for (const participant of this.participants) {
-            reply += `<@${participant.id}>, `;
-        }
-
-        this.channel.send(reply.slice(0, -2));
+            this.finishPreparations(usersReacted?.size ? usersReacted : false);
+        })
     };
 
     private startQuizFilter = (reaction: any, user: any) => {
@@ -209,6 +251,48 @@ class Quiz {
     private endQuiz() {
         this.participants.length = 0;
         this.quizIsOngoing = false;
+    }
+
+    private async finishPreparations(usersReacted: any) {
+        if (!usersReacted) {
+            this.channel.send('Бля вы если зовете, то хоть по кнопке хуярьте');
+            this.channel.send('долбаебы');
+
+            this.quizIsOngoing = false;
+
+            throw 'Not enough players'; // TODO: either make a catch block, or return boolean from function
+        }
+
+        const users = usersReacted.entries();
+
+        while (true) {
+            const user = users.next().value;
+
+            if (!user) break;
+
+            const [id, data] = user;
+
+            if (data.bot) continue;
+
+            this.participants.push({id, data});
+        }
+
+        let reply = 'Текущий состав участников: ';
+        for (const participant of this.participants) {
+            reply += `<@${participant.id}>, `;
+        }
+
+        this.channel.send(reply.slice(0, -2));
+
+        const commandAmountArgument = this.command.content.match(/\d+/);
+        const questionsAmount = commandAmountArgument ? commandAmountArgument[0] : '1';
+
+        await this.setQuestions(questionsAmount);
+        this.setScores();
+
+        if (this.questions.length) this.sendQuestions();
+
+        this.endQuiz();
     }
 }
 
