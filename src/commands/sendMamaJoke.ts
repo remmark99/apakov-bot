@@ -9,9 +9,7 @@ function sendMamaJoke(message: any) {
 
         line = line.replace(/\byo\b/ig, `<@${user.id}>'s`);
 
-        message.channel.send(line, {
-            tts: true
-        });
+        message.channel.send(line);
     })
 }
 
