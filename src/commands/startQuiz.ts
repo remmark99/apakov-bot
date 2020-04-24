@@ -26,15 +26,21 @@ class Quiz {
     private scores: any = {};
     private currentQuestion!: Question;
     private correctAnswer!: string;
+    private quizIsOngoing!: boolean;
 
     public async startQuiz(client: Client, message: any) {
+        if (this.quizIsOngoing) {
+            this.channel.send('Квиз уже начат');
+
+            return;
+        }
+
+        this.quizIsOngoing = true;
         this.channel = message.channel;
         this.client = client;
-        const reply = await this.getParticipants(client, message);
+        await this.getParticipants(client, message);
         const commandAmountArgument = message.content.match(/\d+/);
         const questionsAmount = commandAmountArgument ? commandAmountArgument[0] : 1;
-
-        message.channel.send(reply);
 
         await this.setQuestions(questionsAmount);
         this.setScores();
@@ -44,43 +50,42 @@ class Quiz {
         this.endQuiz();
     }
 
-    private getParticipants(client: Client, message: any): Promise<string> {
-        const promise: Promise<string> = new Promise(resolve => {
-            message.channel.send('Для того, чтобы принять участие в квизе, нажми 👍')
-            .then((sentMessage: any) => {
-                sentMessage.react('👍');
+    private async getParticipants(client: Client, message: any): Promise<void> {
+        const sentMessage = await message.channel.send('Для того, чтобы принять участие в квизе, нажми 👍');
 
-                sentMessage.awaitReactions(this.startQuizFilter, { time: 5000 })
-                    .then((collected: any) => {
-                        collected.get('👍').users.fetch()
-                            .then((result: Collection<Snowflake, User>) => {
-                                const users = result.entries();
+        await sentMessage.react('👍');
 
-                                while (true) {
-                                    const user = users.next().value;
+        const reactions = await sentMessage.awaitReactions(this.startQuizFilter, {time: 5000});
+        const usersReacted: Collection<Snowflake, User> = await reactions.get('👍')?.users.fetch();
 
-                                    if (!user) break;
+        if (!usersReacted) {
+            this.channel.send('Бля вы если зовете, то хоть по кнопке хуярьте');
+            this.channel.send('долбаебы');
 
-                                    const [id, data] = user;
+            throw 'Not enough players'; // TODO: either make a catch block, or return boolean from function
+        }
 
-                                    if (data.bot) continue;
+        const users = usersReacted.entries();
 
-                                    this.participants.push({id, data});
-                                }
+        while (true) {
+            const user = users.next().value;
 
-                                let reply = 'Текущий состав участников: ';
-                                for (const participant of this.participants) {
-                                    reply += `<@${participant.id}>, `;
-                                }
+            if (!user) break;
 
-                                resolve(reply.slice(0, -2));
-                            });
-                    })
-            })
-        });
+            const [id, data] = user;
 
-        return promise;
-    }
+            if (data.bot) continue;
+
+            this.participants.push({id, data});
+        }
+
+        let reply = 'Текущий состав участников: ';
+        for (const participant of this.participants) {
+            reply += `<@${participant.id}>, `;
+        }
+
+        this.channel.send(reply.slice(0, -2));
+    };
 
     private startQuizFilter = (reaction: any, user: any) => {
         return !user.bot && reaction.emoji.name === '👍';
@@ -147,6 +152,7 @@ class Quiz {
             const [id, data] = user;
 
             if (data.bot) continue;
+            if (this.scores[id] === undefined) continue;
 
             this.scores[id] = this.scores[id] + 1;
         }
@@ -177,7 +183,7 @@ class Quiz {
         const fields: EmbedFieldData[] = [];
 
         for (let i = 0; i < 4; i++) {
-            fields.push({name: emojiAnswers[i], value: this.currentQuestion!.answers[answersOrder[i]], inline: true});
+            fields.push({name: emojiAnswers[i], value: this.currentQuestion!.answers[answersOrder[i]]});
 
             if (this.currentQuestion.answers[answersOrder[i]] === this.currentQuestion.correct_answer) {
                 this.correctAnswer = emojiAnswers[i];
@@ -202,6 +208,7 @@ class Quiz {
 
     private endQuiz() {
         this.participants.length = 0;
+        this.quizIsOngoing = false;
     }
 }
 
