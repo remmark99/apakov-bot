@@ -31,7 +31,7 @@ class Quiz {
         this.channel = message.channel;
         this.client = client;
         const reply = await this.getParticipants(client, message);
-        const commandAmountArgument = message.content.match(/\d/);
+        const commandAmountArgument = message.content.match(/\d+/);
         const questionsAmount = commandAmountArgument ? commandAmountArgument[0] : 1;
 
         message.channel.send(reply);
@@ -40,6 +40,8 @@ class Quiz {
         this.setScores();
 
         if (this.questions.length) this.sendQuestions();
+
+        this.endQuiz();
     }
 
     private getParticipants(client: Client, message: any): Promise<string> {
@@ -112,7 +114,7 @@ class Quiz {
         const reactions = await message.awaitReactions((reaction: any, user: any) => !user.bot, { time: 10000 });
         await this.changeScores(reactions);
 
-        const scoresFields = this.getScoresFields();
+        const scoresFields = await this.getScoresFields();
 
         const scoresEmbed = new MessageEmbed()
             .setTitle('Результаты')
@@ -135,7 +137,6 @@ class Quiz {
         const usersReactedCorrectly = await reactions.get(this.correctAnswer)?.users.fetch(); // TODO: change varialbe name
         const users = usersReactedCorrectly?.entries();
 
-        console.log('changing scores');
         if (!users) return;
 
         while (true) {
@@ -148,7 +149,6 @@ class Quiz {
             if (data.bot) continue;
 
             this.scores[id] = this.scores[id] + 1;
-            console.log(this.scores[id], id, this.scores);
         }
     }
 
@@ -187,15 +187,21 @@ class Quiz {
         return fields;
     }
 
-    private getScoresFields(): EmbedFieldData[] {
+    private async getScoresFields(): Promise<EmbedFieldData[]> {
         const scoresFields: EmbedFieldData[] = [];
         const usersId = Object.keys(this.scores);
 
         for (const userId of usersId) {
-            scoresFields.push({name: `<@${userId}>`, value: this.scores[userId]});
+            const user = await this.client.users.fetch(userId);
+
+            scoresFields.push({name: user.username, value: this.scores[userId]});
         }
 
         return scoresFields;
+    }
+
+    private endQuiz() {
+        this.participants.length = 0;
     }
 }
 
