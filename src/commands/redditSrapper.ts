@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import axios from 'axios';
-import { Message, TextChannel, DMChannel, NewsChannel, MessageEmbed } from 'discord.js';
+import axios, { AxiosResponse } from 'axios';
+import { Message, TextChannel, DMChannel, NewsChannel, MessageEmbed, MessageAttachment } from 'discord.js';
 import * as fs from 'fs';
 import * as http from 'https';
 
@@ -10,59 +10,80 @@ class RedditScrapper {
     private counter: number = 0;
 
     public async start(message: Message) {
-        const subreddit = message.content.split('/')[1];
+        const command = message.content.split(' ');
+        const subreddit = command[0].split('/')[1];
+        const count = command[1] ? +command[1] : 0;
+
+        this.channel = message.channel;
+        let redditPage: AxiosResponse<any>;
 
         try {
-            const redditPage = await axios.get(`https://www.reddit.com/r/${subreddit}/`);
-            this.$ = cheerio.load(redditPage.data);
+            redditPage = await axios.get(`https://gateway.reddit.com/desktopapi/v1/subreddits/${subreddit}`);
         } catch(error) {
             message.channel.send('Такого subreddit\'а не существует');
             return;
         }
 
-        this.channel = message.channel;
+        // tslint:disable-next-line
+        for (let post in redditPage.data.posts) {
+            this.getPostData(redditPage.data.posts[post]);
 
-        this.$('#2x-container > div > div > div > div:nth-child(4) > div > div > div > div:nth-child(2) > div:nth-child(3) > div:first-child > div:nth-child(3)').children().each((index, post) => {
-            console.log('this runs');
-            this.counter++;
-            this.getPostData(post);
-        });
+            if (this.counter >= count) {
+                this.counter = 0;
+                return;
+            }
+        }
     }
 
-    private async getPostData(post: CheerioElement) {
-        const title = this.$('div > div > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) h3', post);
-        const image = this.$('div > div > div:nth-child(2) > div:nth-child(3) > div > div:nth-child(2) img', post);
-        const video = this.$('video source', post);
-
-        console.log(title);
-
-        if (!title.length) {
+    private async getPostData(post: any) {
+        if (post.author === 'redditads' || !(post.media && (post.media.type === 'image' || post.media.type === 'gifvideo'))) {
             return;
         }
 
-        if (video.length) {
+        this.counter++;
+        const title = post.title;
+
+        if (post.media.type === 'image') {
+            const image = post.media.content;
+
+            const imageEmbed = new MessageEmbed()
+            .setAuthor(`Posted by ${post.author} ${this.getTime(post.created)}`, 'https://2.bp.blogspot.com/-r3brlD_9eHg/XDz5bERnBMI/AAAAAAAAG2Y/XfivK0eVkiQej2t-xfmlNL6MlSQZkvcEACK4BGAYYCw/s1600/logo%2Breddit.png')
+            .setDescription(`**${title}**`)
+            .setImage(image)
+
+            this.channel.send(imageEmbed);
+        } else {
             const counter = this.counter;
             const file = fs.createWriteStream(`file${counter}.mp4`);
-            const request = http.get(video.attr('src')!, response => {
+            const request = http.get(post.media.content, response => {
                 const stream = response.pipe(file);
 
                 stream.on('finish', () => {
-                    const videoEmbed = new MessageEmbed()
-                        .setTitle(title.text().replace(/\<.*?\>/g, '').slice(200))
-                        .attachFiles([`file${counter}.mp4`])
+                    const attachment = new MessageAttachment(`file${counter}.mp4`);
 
-                    this.channel.send(videoEmbed);
+                    this.channel.send(post.title, attachment);
                 });
             });
-
-            return;
         }
+    }
 
-        const imageEmbed = new MessageEmbed()
-            .setTitle(title.text().replace(/\<.*?\>/g, ''))
-            .setImage(image.attr('src')!)
+    private getTime(created: number) {
+        let timePassed = Date.now() - created;
 
-        this.channel.send(imageEmbed);
+        const ms = timePassed % 1000;
+        timePassed = (timePassed - ms) / 1000;
+        const secs = timePassed % 60;
+        timePassed = (timePassed - secs) / 60;
+        const mins = timePassed % 60;
+        const hours = (timePassed - mins) / 60;
+        const days = Math.floor(hours / 24);
+
+        return days ?
+            `${days} day${days > 1 ? 's' : ''} ago` :
+            hours ?
+                `${hours} hour${hours > 1 ? 's' : ''} ago` :
+                `${mins} minute${mins > 1 ? 's' : ''} ago`
+
     }
 }
 
