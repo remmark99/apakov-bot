@@ -38,6 +38,7 @@ class Quiz {
     private correctAnswer!: string;
     private quizIsOngoing!: boolean;
     private command!: Message;
+    private currentQuestionNumber: number = 0;
 
     public async startQuiz(client: Client, message: any) {
         if (this.quizIsOngoing) {
@@ -54,7 +55,7 @@ class Quiz {
 
     private async getParticipants(client: Client, command: Message): Promise<void> {
         let timeLeft = 60;
-        let usersReadyToPlay: number;
+        let usersReadyToPlay: number = 0;
         this.command = command;
         const startQuizEmbed = new MessageEmbed()
             .setColor('#29b64e')
@@ -72,7 +73,7 @@ class Quiz {
                 {name: 'Если ты долбаеб, можешь добавить любую другую эмодзи', value: client.emojis.cache.get('703194339094036510'), inline: true},
                 )
             .addField('Викторина начнется автоматически через', `***${timeLeft} секунд***`)
-            .setFooter('Всего участников: ')
+            .setFooter(`Всего участников: ${usersReadyToPlay}`)
 
         const sentMessage = await command.channel.send(startQuizEmbed);
 
@@ -99,7 +100,7 @@ class Quiz {
                         {name: 'Если ты долбаеб, можешь добавить любую другую эмодзи', value: client.emojis.cache.get('703194339094036510'), inline: true},
                         )
                     .addField('Викторина начнется автоматически через', `***${timeLeft} секунд***`)
-                    .setFooter('Всего участников: ')
+                    .setFooter(`Всего участников: ${usersReadyToPlay}`)
             );
 
             if (timeLeft === 0) clearInterval(intervalId);
@@ -111,6 +112,7 @@ class Quiz {
         collector.on('collect', async (reaction, reactionCollector) => {
             usersReacted = await sentMessage.reactions.cache.get('👍')?.users.fetch();
             usersReacted = usersReacted?.filter((user: any) => !user.bot);
+            usersReadyToPlay = usersReacted ? usersReacted.size : 0;
 
             if (reaction.emoji.name === '⏩' && reactionCollector.username === this.command.author.username) {
                 clearInterval(intervalId);
@@ -134,8 +136,22 @@ class Quiz {
     }
 
     private async setQuestions(amount: string): Promise<void> {
-        const response = await axios.get(`https://opentdb.com/api.php?amount=${amount}&category=31`);
+        let category = this.command.content.split(' ')[this.command.content.split(' ').length - 1];
+
+        if (typeof +category !== 'number') {
+            if (category === 'общее') category = '9';
+            if (category === 'аниме') category = '31';
+            if (category === 'игры') category = '15';
+            if (isNaN(+category)) category = '0';
+        } else {
+            category = '0';
+        }
+
+        console.log(category, amount);
+        const response = await axios.get(`https://opentdb.com/api.php?amount=${amount}&category=${category}&type=multiple`); // TODO: добавить поддержку TF вопросов
         this.questions = response.data.results;
+
+        console.log(this.questions, 'we got here');
 
         for (const question of this.questions) {
             question.answers = question.incorrect_answers.concat(question.correct_answer);
@@ -143,13 +159,16 @@ class Quiz {
     }
 
     private async sendQuestions(): Promise<void> {
+        this.currentQuestionNumber++;
         this.currentQuestion = this.questions.pop() as Question; // TODO: fix as Question
         const answersOrder = this.getRandomAnswersOrder();
         const fields = this.getFields(answersOrder);
+        let questionTime = 20;
 
         const embed = new MessageEmbed()
-            .setTitle(this.currentQuestion!.question.replace(/\&quot\;/g,'"'))
-            .addFields(fields);
+            .setTitle(`Вопрос ${this.currentQuestionNumber}: ${this.normalizeString(this.currentQuestion!.question)}`)
+            .addFields(fields)
+            .addField('Категория', `**${this.currentQuestion.category}**`, true)
 
         const message = await this.channel.send(embed);
 
@@ -158,13 +177,22 @@ class Quiz {
         await message.react('🇨');
         await message.react('🇩');
 
-        const reactions = await message.awaitReactions((reaction: any, user: any) => !user.bot, { time: 10000 });
+        const intervalId = setInterval(() => {
+            questionTime -= 5;
+
+            message.edit(embed.setFooter(`Времени осталось: ${questionTime} секунд`));
+
+            if (questionTime === 0) clearInterval(intervalId);
+        }, 5000);
+
+        const reactions = await message.awaitReactions((reaction: any, user: any) => !user.bot, { time: questionTime * 1000 });
         await this.changeScores(reactions);
 
         const scoresFields = await this.getScoresFields();
 
         const scoresEmbed = new MessageEmbed()
             .setTitle('Результаты')
+            .addField('Правильный ответ', this.correctAnswer)
             .addFields(scoresFields);
 
         this.channel.send(scoresEmbed);
@@ -225,7 +253,11 @@ class Quiz {
         const fields: EmbedFieldData[] = [];
 
         for (let i = 0; i < 4; i++) {
-            fields.push({name: emojiAnswers[i], value: this.currentQuestion!.answers[answersOrder[i]]});
+            if (i === 2) {
+                fields.push({name: 'Сложность', value: this.currentQuestion.difficulty === 'easy' ? '🔥' : this.currentQuestion.difficulty === 'medium' ? '🔥🔥' : '🔥🔥🔥', inline: true});
+            }
+
+            fields.push({value: emojiAnswers[i], name: this.normalizeString(this.currentQuestion!.answers[answersOrder[i]]), inline: true});
 
             if (this.currentQuestion.answers[answersOrder[i]] === this.currentQuestion.correct_answer) {
                 this.correctAnswer = emojiAnswers[i];
@@ -250,13 +282,13 @@ class Quiz {
 
     private endQuiz() {
         this.participants.length = 0;
+        this.currentQuestionNumber = 0;
         this.quizIsOngoing = false;
     }
 
     private async finishPreparations(usersReacted: any) {
         if (!usersReacted) {
-            this.channel.send('Бля вы если зовете, то хоть по кнопке хуярьте');
-            this.channel.send('долбаебы');
+            this.channel.send('Не набралось достаточного количества игроков');
 
             this.quizIsOngoing = false;
 
@@ -293,6 +325,16 @@ class Quiz {
         if (this.questions.length) this.sendQuestions();
 
         this.endQuiz();
+    }
+
+    private normalizeString(text: string): string {
+        return text
+            .replace(/\&quot\;/g,'"')
+            .replace(/\&\#039\;/g, `'`)
+            .replace(/\&amp\;/g, '&')
+            .replace(/\&rsquo\;/g, '’')
+            .replace(/\&ldquo\;/, '"')
+            .replace(/\&hellip\;/, '...');
     }
 }
 

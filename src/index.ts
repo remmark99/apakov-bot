@@ -4,6 +4,8 @@ import mute from './commands/mute';
 import sendMamaJoke from './commands/sendMamaJoke';
 import sendGif from './commands/sendGif';
 import quiz from './commands/startQuiz';
+import redditScrapper from './commands/redditSrapper';
+import isaac from './commands/isaac';
 
 class Bot {
     private client!: Discord.Client;
@@ -36,9 +38,19 @@ class Bot {
                 return;
             }
 
+            if (message.content.includes('isaac')) {
+                isaac(message);
+                return;
+            }
+
             if (message.content.includes('quiz')) {
                 quiz.startQuiz(this.client, message);
                 return;
+            }
+
+            if (message.content.startsWith('r/')) {
+                console.log('we are going to start');
+                redditScrapper.start(message);
             }
 
             if (!this.startsWithPrefix()) return;
@@ -53,6 +65,10 @@ class Bot {
             if (content.includes('заеби')) {
                 this.intervalId = setInterval(() => message.channel.send('<@298456985807093761>'), 3000);
                 return;
+            }
+
+            if (content.includes('забей') && content.includes('кал')) {
+                message.channel.send('<:kalendupula:703265501257793537>');
             }
 
             if (content.includes('поеби')) {
@@ -94,9 +110,9 @@ class Bot {
     }
 
     private async sendSillyReply(message: any): Promise<void> {
-        if (message.author.username === 'German') {
-            message.channel.send('Ой да ты вообще ебло завали');
-        } else if (!message.author.bot && this.endsWith('да')) {
+        // if (message.author.username === 'German') {
+        //     message.channel.send('Ой да ты вообще ебло завали');
+        if (!message.author.bot && this.endsWith('да')) {
             await this.message.channel.send('ПИЗДА');
             await message.react('🇱');
             await message.react('🇴');

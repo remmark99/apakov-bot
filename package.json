@@ -19,8 +19,10 @@
   },
   "homepage": "https://github.com/remmark99/apakov-bot#readme",
   "dependencies": {
+    "@types/cheerio": "^0.22.18",
     "@types/node": "^13.13.1",
     "axios": "^0.19.2",
+    "cheerio": "^1.0.0-rc.3",
     "discord.js": "^12.2.0",
     "tslint": "^6.1.1"
   },
